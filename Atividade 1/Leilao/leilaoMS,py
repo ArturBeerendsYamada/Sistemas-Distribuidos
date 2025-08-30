@@ -1,0 +1,51 @@
+import pika
+import json
+
+RABBITMQ_HOST = 'localhost'
+EXCHANGE_NAME = 'leilao_exchange'
+ROUTING_KEY_LEILAO_INICIADO = 'leilao_iniciado'
+ROUTING_KEY_LEILAO_FINALIZADO = 'leilao_finalizado'
+
+def main():
+    # abre conexao e exchange para publicar mensagens
+    connection = pika.BlockingConnection(pika.ConnectionParameters(RABBITMQ_HOST))
+    channel = connection.channel()
+    channel.exchange_declare(exchange=EXCHANGE_NAME, exchange_type='direct')
+
+    print("[iniciar] [ID] [DESCRICAO] [DATA_INICIO] [DATA_FIM]")
+
+    while True:
+        try:
+            entrada = input()
+            partes = entrada.split()
+            if partes[0] == 'iniciar':
+                message = json.dumps({
+                        'lei_id': partes[1],
+                        'desc': partes[2],
+                        'data_inic': partes[3],
+                        'data_fim': partes[4]
+                    })
+                channel.basic_publish(
+                        exchange=EXCHANGE_NAME,
+                        routing_key=ROUTING_KEY_LEILAO_INICIADO,
+                        body=message
+                    )
+                print(f"Leilão iniciado: {partes[1]}")
+            else:
+                message = json.dumps({
+                        'lei_id': partes[1],
+                    })
+                channel.basic_publish(
+                        exchange=EXCHANGE_NAME,
+                        routing_key=ROUTING_KEY_LEILAO_FINALIZADO,
+                        body=message
+                    )
+                print(f"Leilão finalizado: {partes[1]}")
+        except (KeyboardInterrupt, EOFError):
+            print("\nSaindo. Agradeçemos pela preferência.")
+            break
+
+    connection.close()
+
+if __name__ == '__main__':
+    main()
