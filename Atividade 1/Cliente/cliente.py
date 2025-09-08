@@ -56,6 +56,8 @@ def consume():
     channel.basic_consume(queue=queue_name, on_message_callback=callback, auto_ack=True)
     print(f"Esperando leilões...")
     print(f"Se deseja participar de algum, digite o ID do leilão seguido do valor lance que deseja fazer (apenas números)")
+    print(f"Por exemplo, para fazer o lance 100 no leilão 0, digite: 0 100")
+    print(f"Se o lance foi bem sucedido, você começará a receber atualizações sobre o leilão, incluindo o seu próprio lance")
     channel.start_consuming()
 
 def publish(private_key):

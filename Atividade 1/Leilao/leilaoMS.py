@@ -9,9 +9,8 @@ EXCHANGE_NAME = 'leilao_exchange'
 ROUTING_KEY_LEILAO_INICIADO = 'leilao_iniciado'
 ROUTING_KEY_LEILAO_FINALIZADO = 'leilao_finalizado'
 
-# agenda os leiloes para 5 segundos depois do tempo de execucao
 
-# leilao 0 dura 30 segundos, tempo para cada cliente fazer lances
+# leilao 0 dura 30 segundos e comeca 5 segundos depois do inicio do script
 LEI_0_INIC = int(time.time()) + 5
 LEI_0_FIM = LEI_0_INIC + 30
 
@@ -68,7 +67,7 @@ leiloes = [
     },
     {
         'lei_id': 2,
-        'desc': "queijo",
+        'desc': "escultura",
         'data_inic': LEI_2_INIC,
         'data_fim': LEI_2_FIM,
     }
