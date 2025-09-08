@@ -2,8 +2,6 @@ import pika
 import json
 import schedule
 import time
-import sys
-import select
 
 
 RABBITMQ_HOST = 'localhost'
@@ -11,13 +9,22 @@ EXCHANGE_NAME = 'leilao_exchange'
 ROUTING_KEY_LEILAO_INICIADO = 'leilao_iniciado'
 ROUTING_KEY_LEILAO_FINALIZADO = 'leilao_finalizado'
 
-# agenda os leiloes para 5 segundos depois do tempo atual
+# agenda os leiloes para 5 segundos depois do tempo de execucao
+
+# leilao 0 dura 30 segundos, tempo para cada cliente fazer lances
 LEI_0_INIC = int(time.time()) + 5
-LEI_0_FIM = LEI_0_INIC + 10
-LEI_1_INIC = LEI_0_INIC + 2
-LEI_1_FIM = LEI_0_INIC + 7
-LEI_2_INIC = LEI_0_INIC + 20
-LEI_2_FIM = LEI_0_INIC + 25
+LEI_0_FIM = LEI_0_INIC + 30
+
+# leilao 1 dura 5 segundos e comeca 5 segundos depois do leilao 0
+# para mostrar que leiloes podem acontecer em paralelo
+# e se o usuario nao fazer um lance nele, nao recebe mensagens
+LEI_1_INIC = LEI_0_INIC + 5
+LEI_1_FIM = LEI_1_INIC + 5
+
+# leilao 2 dura 10 segundos e comeca 10 segundos depois do fim do leilao 0
+# para mostrar que lances realizados enquanto um leilao nao esta ativo sao descartados 
+LEI_2_INIC = LEI_0_FIM + 10
+LEI_2_FIM = LEI_2_INIC + 10
 
 INICIAR = 1
 FINALIZAR = 0
