@@ -10,6 +10,7 @@ WANTED = 1
 HELD = 2
 ACCEPTED = 3
 DENIED = 4
+SKIPPED = 5
 HEARTBEAT_INTERVAL = 5 # seconds between heartbeats
 HEARTBEAT_TOLERANCE = 2 # number of missed heartbeats until a peer is considered inactive
 REQUEST_TIMEOUT = 20 # maximum time one waits for responses
@@ -19,12 +20,12 @@ Pyro5.config.PREFER_IP_VERSION = 4
 
 def get_peer_uri(peer, debug=True):
     nameserver = Pyro5.api.locate_ns(host="127.0.0.1")
-    try:
-        uri = nameserver.lookup(peer)
-    except Exception as e:
-        if debug:
-            print(f"Error looking up {peer}: {e}")
-        return None
+    # try:
+    uri = nameserver.lookup(peer)
+    # except Exception as e:
+    #     if debug:
+    #         print(f"Error looking up {peer}: {e}")
+    #     return None
     peerProxy = Pyro5.api.Proxy(uri)
     return peerProxy
 
@@ -35,10 +36,10 @@ class pyroPeer(object):
     cs_timeout_scheduler = BackgroundScheduler()
     peerList = ["peerA", "peerB", "peerC", "peerD"]
     active_peers = {
-        "peerA": {"active": False, "heartbeat": 20, "last_reply": DENIED},
-        "peerB": {"active": False, "heartbeat": 20, "last_reply": DENIED},
-        "peerC": {"active": False, "heartbeat": 20, "last_reply": DENIED},
-        "peerD": {"active": False, "heartbeat": 20, "last_reply": DENIED},
+        "peerA": {"active": False, "heartbeat": 20, "last_reply": SKIPPED},
+        "peerB": {"active": False, "heartbeat": 20, "last_reply": SKIPPED},
+        "peerC": {"active": False, "heartbeat": 20, "last_reply": SKIPPED},
+        "peerD": {"active": False, "heartbeat": 20, "last_reply": SKIPPED},
     }
     queued_requests = []
     
@@ -60,8 +61,8 @@ class pyroPeer(object):
                 # print("Heartbeating {0}".format(peer))
                 # registered_name = "PYRONAME:"+peer
                 # peerProxy = Pyro5.api.Proxy(registered_name)
-                peerProxy = get_peer_uri(peer, debug=False)
                 try:
+                    peerProxy = get_peer_uri(peer, debug=False)
                     peerProxy.heartbeat(self.name)
                 except:
                     pass
@@ -74,45 +75,53 @@ class pyroPeer(object):
                     self.active_peers[peer]["active"] = False
                 # print(peer, self.active_peers[peer]["active"], self.active_peers[peer]["heartbeat"])
     
-    def check_active_peers(self):
+    def check_active_peers(self, detailed=True):
         # print(Pyro5.api.locate_ns(host="127.0.0.1").list())
         for peer in self.peerList:
             if not peer == self.name:
                 # registered_name = "PYRONAME:"+peer
                 # peerProxy = Pyro5.api.Proxy(registered_name)
-                peerProxy = get_peer_uri(peer)
-                if peerProxy is not None:
-                    try:
-                        print(peerProxy.identify())
-                        self.active_peers[peer]["active"] = True
-                        self.active_peers[peer]["heartbeat"] = 0
-                    except Exception as e:
+                try:
+                    peerProxy = get_peer_uri(peer)
+                    peer_reply = peerProxy.identify()
+                    if detailed:
+                        print(peer_reply)
+                    self.active_peers[peer]["active"] = True
+                    self.active_peers[peer]["heartbeat"] = 0
+                except Exception as e:
+                    self.active_peers[peer]["active"] = False
+                    if detailed:
                         print(f"{peer} unreachable due to error: [{e}]")
     
     def enter_critical_section(self):
         self.state = WANTED
         if self.request_timestamp == 0:
             self.request_timestamp = time.time()
-        for peer in self.peerList:
-            if not peer == self.name and self.active_peers[peer]["active"]:
-                print("Requesting CS from {0}".format(peer))
-                # registered_name = "PYRONAME:"+peer
-                # peerProxy = Pyro5.api.Proxy(registered_name)
-                peerProxy = get_peer_uri(peer)
-                try:
-                    reply = peerProxy.request_cs(self.name, self.request_timestamp)
-                    print("Reply from {0}: {1}".format(peer, reply))
-                    self.active_peers[peer]["last_reply"] = reply
-                    print("saved reply")
-                except Exception as e:
-                    print(f"Error requesting CS from {peer}: {e}")
-                    self.active_peers[peer]["active"] = False
-        
+
         while self.state == WANTED:
+            # checks active peers before requesting
+            self.check_active_peers(detailed=False)
+            # sends requests to all active peers that haven't replied yet
+            for peer in self.peerList:
+                if not peer == self.name and self.active_peers[peer]["active"] and self.active_peers[peer]["last_reply"] == SKIPPED:
+                    # print("Requesting CS from {0}".format(peer))
+                    # registered_name = "PYRONAME:"+peer
+                    # peerProxy = Pyro5.api.Proxy(registered_name)
+                    try:
+                        peerProxy = get_peer_uri(peer)
+                        reply = peerProxy.request_cs(self.name, self.request_timestamp)
+                        # print("Reply from {0}: {1}".format(peer, reply))
+                        self.active_peers[peer]["last_reply"] = reply
+                    except Exception as e:
+                        print(f"Error requesting CS from {peer}: {e}")
+                        self.active_peers[peer]["active"] = False
+                elif self.active_peers[peer]["active"] == False:
+                    self.active_peers[peer]["last_reply"] = SKIPPED
+            # check if all replies are ACCEPTED, if one is denied, go back to WANTED and retry (they should reply when free)
             if (time.time() - self.request_timestamp) > REQUEST_TIMEOUT:
                 print("Request timeout exceeded, aborting CS request")
                 self.state = RELEASED
-                self.request_timestamp = 0
+                self.leave_critical_section()
                 return
             print("Attempting to enter critical section...")
             self.state = HELD
@@ -121,11 +130,11 @@ class pyroPeer(object):
                     if self.active_peers[peer]["last_reply"] == DENIED:
                         self.state = WANTED
                         print("CS request DENIED by {0}".format(peer))
-                        break
             time.sleep(1)
+
+        # if successfully entered critical section, schedule timeout to release it
         if self.state == HELD:
             print("Entering critical section")
-            self.request_timestamp = 0
             # schedule a timeout to release the critical section if held too long
             datetime_now = datetime.datetime.now()
             datetime_timeout = datetime_now + datetime.timedelta(seconds=CRITSEC_TIMEOUT)
@@ -133,20 +142,23 @@ class pyroPeer(object):
                                               "date", run_date=datetime_timeout, id="cs_timeout")
     
     def leave_critical_section(self):
-        if self.state != HELD:
-            print("Not in critical section, cannot leave")
-            return
         print("Leaving critical section")
+        # release clean up
         self.state = RELEASED
+        self.request_timestamp = 0
+        for peer in self.peerList:
+            if not peer == self.name:
+                self.active_peers[peer]["last_reply"] = SKIPPED
         self.cs_timeout_scheduler.remove_all_jobs()
-        self.request_timestamp = None
+
+        # notify all queued requests that critical section is released
         for peer in self.queued_requests:
             print("Notifying {0} of CS release".format(peer))
             # registered_name = "PYRONAME:"+peer
             # peerProxy = Pyro5.api.Proxy(registered_name)
-            peerProxy = get_peer_uri(peer)
             try:
-                reply = peerProxy.delayed_cs_accept(self.name)
+                peerProxy = get_peer_uri(peer)
+                peerProxy.delayed_cs_accept(self.name)
             except Exception as e:
                 print(f"Error notifying {peer} of CS release: {e}")
                 self.active_peers[peer]["active"] = False
@@ -166,16 +178,19 @@ class pyroExposedPeer(object):
     def request_cs(self, peer, timestamp):
         # if self state is HELD, queue request and return DENIED
         if myPeer.state == HELD:
-            myPeer.queued_requests.append(peer)
+            if peer not in myPeer.queued_requests:
+                myPeer.queued_requests.append(peer)
             return DENIED
         # if self state is WANTED, compare timestamps and peer names, priority to the lower
         elif myPeer.state == WANTED:
             if timestamp > myPeer.request_timestamp:
-                myPeer.queued_requests.append(peer)
+                if peer not in myPeer.queued_requests:
+                    myPeer.queued_requests.append(peer)
                 return DENIED
             elif timestamp == myPeer.request_timestamp:
                 if peer > myPeer.name:
-                    myPeer.queued_requests.append(peer)
+                    if peer not in myPeer.queued_requests:
+                        myPeer.queued_requests.append(peer)
                     return DENIED
                 else:
                     return ACCEPTED
