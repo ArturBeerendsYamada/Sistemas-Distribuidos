@@ -1,8 +1,13 @@
 import pika
 import json
-from Crypto.Signature import pkcs1_15
-from Crypto.Hash import SHA256
-from Crypto.PublicKey import RSA
+import threading
+
+# app.py
+from flask import Flask, request, jsonify
+app = Flask(__name__)
+
+def runFlaskApp():
+    app.run(port=5002, debug=True, use_reloader=False)
 
 RABBITMQ_HOST = 'localhost'
 EXCHANGE_NAME = 'leilao_exchange'
@@ -10,40 +15,32 @@ EXCHANGE_TYPE = 'direct'
 
 ROUTING_KEY_LEILAO_INICIADO = 'leilao_iniciado'
 ROUTING_KEY_LEILAO_FINALIZADO = 'leilao_finalizado'
-ROUTING_KEY_LANCE_REALIZADO = 'lance_realizado'
+ROUTING_KEY_LANCE_INVALIDADO = 'lance_invalidado'
 ROUTING_KEY_LANCE_VALIDADO = 'lance_validado'
 ROUTING_KEY_LEILAO_VENCEDOR = 'leilao_vencedor'
 
 # chave eh o id do leilao
 ultimos_lances_validos = {}
+rabbitmq_objects = {}
 
 # Routing keys
 QUEUE_BINDINGS = [
-    (ROUTING_KEY_LANCE_REALIZADO, ROUTING_KEY_LANCE_REALIZADO),
+    (ROUTING_KEY_LANCE_INVALIDADO, ROUTING_KEY_LANCE_INVALIDADO),
     (ROUTING_KEY_LEILAO_INICIADO, ROUTING_KEY_LEILAO_INICIADO),
     (ROUTING_KEY_LEILAO_FINALIZADO, ROUTING_KEY_LEILAO_FINALIZADO)
 ]
 
-def process_lance_realizado(ch, method, properties, body):
-    json_data_signed = json.loads(body)
-    print(f"Lance recebido: {json_data_signed['message']}")
-    json_data = json.loads(json_data_signed['message'])
-    signature = json_data_signed['signature']
-
-    # verifica assinatura, se nao for valida ignora
-    try:
-        key = RSA.import_key(open(f"../Cliente/public_key_{json_data['cli_id']}.pem").read())
-        h = SHA256.new(json_data_signed['message'].encode())
-        pkcs1_15.new(key).verify(h, bytes.fromhex(signature))
-    except (ValueError, TypeError):
-        print("Assinatura inválida")
-        return
+@app.post("/lance")
+def process_lance():
+    json_data = request.get_json()
     
     # se leilao nao existe, ou esta finalizado, ignora
     if json_data['lei_id'] not in ultimos_lances_validos or ultimos_lances_validos[json_data['lei_id']]['status'] == 'finalizado':
         print(f"Leilão não existe ou está finalizado: {json_data['lei_id']}")
-        return
+        return {"error": "Leilão não existe ou está finalizado"}, 400
     
+    ch = rabbitmq_objects[json_data['lei_id']]['channel']
+    print(json_data['lance'])
     # se foi lance valido
     if int(json_data['lance']) > int(ultimos_lances_validos[json_data['lei_id']]['lance']) and ultimos_lances_validos[json_data['lei_id']]['status'] == 'ativo':
         # atualiza ultimo lances validos do respectivo leilao
@@ -56,27 +53,43 @@ def process_lance_realizado(ch, method, properties, body):
             body=json.dumps(json_data)
         )
         print(f"Lance validado: {json_data}")
+        return {"message": "Lance validado"}, 200
     
     # se nao, lance ignorado por ser menor
     else:
+        ch.basic_publish(
+            exchange=EXCHANGE_NAME,
+            routing_key=ROUTING_KEY_LANCE_INVALIDADO,
+            body=json.dumps(json_data)
+        )
         print(f"Ignorando lance invalido")
-        return
+        return {"error": "Lance inválido"}, 400
 
 def process_leilao_iniciado(ch, method, properties, body):
     json_data = json.loads(body)
     print(f"Leilao iniciado: {json_data['lei_id']}")
+
+    # cria canal para publicar mensagens
+    connection = pika.BlockingConnection(pika.ConnectionParameters(RABBITMQ_HOST))
+    channel = connection.channel()
+    channel.exchange_declare(exchange=EXCHANGE_NAME, exchange_type=EXCHANGE_TYPE)
+
     # inicializa o leilão
     ultimos_lances_validos[json_data['lei_id']] = {
-        'lance': 0,
         'cli_id': None,
+        'lance': json_data['lance_inic'],
+        'nome': json_data['nome'],
         'desc': json_data['desc'],
         'status': 'ativo'
+    }
+    rabbitmq_objects[json_data['lei_id']] = {
+        'channel': channel,
+        'connection': connection
     }
     print(ultimos_lances_validos[json_data['lei_id']])
 
 def process_leilao_finalizado(ch, method, properties, body):
     json_data = json.loads(body)
-    print(f"Leilao finalizado: {json_data['lei_id']}")
     ultimos_lances_validos[json_data['lei_id']]['status'] = 'finalizado'
 
     json_data['cli_id'] = ultimos_lances_validos[json_data['lei_id']]['cli_id']
@@ -89,6 +102,10 @@ def process_leilao_finalizado(ch, method, properties, body):
         routing_key=ROUTING_KEY_LEILAO_VENCEDOR,
         body=message
     )
+
+    rabbitmq_objects[json_data['lei_id']]['channel'].close()
+    rabbitmq_objects[json_data['lei_id']]['connection'].close()
+
     print(f"Leilão finalizado: {message}")
 
 def main():
@@ -102,9 +119,10 @@ def main():
         channel.queue_declare(queue=queue_name)
         channel.queue_bind(exchange=EXCHANGE_NAME, queue=queue_name, routing_key=routing_key)
 
-    channel.basic_consume(queue='lance_realizado', on_message_callback=process_lance_realizado, auto_ack=True)
     channel.basic_consume(queue='leilao_iniciado', on_message_callback=process_leilao_iniciado, auto_ack=True)
     channel.basic_consume(queue='leilao_finalizado', on_message_callback=process_leilao_finalizado, auto_ack=True)
+
+    threading.Thread(target=runFlaskApp, daemon=True).start()
 
     print("Esperando mensagens de leilao ou lances...")
     try:
