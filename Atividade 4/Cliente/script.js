@@ -1,6 +1,12 @@
 const BASE_URL = 'http://127.0.0.1:5000'; // ajuste se seu backend roda em outra porta
 const CLI_ID = Math.floor(Date.now() / 1000)*1000 + Math.floor(Math.random() * 1000); // id do cliente
 console.log('Client ID:', CLI_ID);
+const container = document.getElementById('header');
+const el = document.createElement('h2');
+el.innerHTML = `
+    Seu ID de Cliente: <strong>${CLI_ID}</strong>
+`;
+container.appendChild(el);
 const eventSource = new EventSource(`http://127.0.0.1:5000/listen?cli_id=${CLI_ID}`);
 
 eventSource.onmessage = function(event) {

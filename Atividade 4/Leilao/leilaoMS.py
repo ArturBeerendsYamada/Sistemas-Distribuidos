@@ -12,6 +12,8 @@ def runFlaskApp():
     app.run(port=5001, debug=True, use_reloader=False)
 
 def _find_next_id():
+    if not leiloes:
+        return 0
     return max(leilao["lei_id"] for leilao in leiloes) + 1
 
 @app.get("/consultar_leiloes")
@@ -112,14 +114,6 @@ def leilao_agendado(evento, lei_id, channel, connection):
     return schedule.CancelJob
 
 leiloes = [
-    {
-        'lei_id': 0,
-        'nome': "pintura",
-        'desc': "eh uma pintura",
-        'lance_inic': 100.0,
-        'data_inic': LEI_0_INIC,
-        'data_fim': LEI_0_FIM,
-    }
 ]
 
 def main():
