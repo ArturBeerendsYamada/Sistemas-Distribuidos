@@ -34,13 +34,13 @@ QUEUE_BINDINGS = [
 def process_lance():
     json_data = request.get_json()
     
-    # se leilao nao existe, ou esta finalizado, ignora
-    if json_data['lei_id'] not in ultimos_lances_validos or ultimos_lances_validos[json_data['lei_id']]['status'] == 'finalizado':
-        print(f"Leilão não existe ou está finalizado: {json_data['lei_id']}")
-        return {"error": "Leilão não existe ou está finalizado"}, 400
+    # se leilao nao existe, ignora
+    if json_data['lei_id'] not in ultimos_lances_validos:
+        print(f"Leilão não existe: {json_data['lei_id']}")
+        return {"error": "Leilão não existe"}, 400
     
     ch = rabbitmq_objects[json_data['lei_id']]['channel']
-    print(json_data['lance'])
+
     # se foi lance valido
     if int(json_data['lance']) > int(ultimos_lances_validos[json_data['lei_id']]['lance']) and ultimos_lances_validos[json_data['lei_id']]['status'] == 'ativo':
         # atualiza ultimo lances validos do respectivo leilao
@@ -55,7 +55,7 @@ def process_lance():
         print(f"Lance validado: {json_data}")
         return {"message": "Lance validado"}, 200
     
-    # se nao, lance ignorado por ser menor
+    # se nao, lance invalido
     else:
         ch.basic_publish(
             exchange=EXCHANGE_NAME,
@@ -95,6 +95,7 @@ def process_leilao_finalizado(ch, method, properties, body):
     json_data['cli_id'] = ultimos_lances_validos[json_data['lei_id']]['cli_id']
     json_data['lance'] = ultimos_lances_validos[json_data['lei_id']]['lance']
     json_data['desc'] = ultimos_lances_validos[json_data['lei_id']]['desc']
+    json_data['nome'] = ultimos_lances_validos[json_data['lei_id']]['nome']
     message = json.dumps(json_data)
 
     ch.basic_publish(

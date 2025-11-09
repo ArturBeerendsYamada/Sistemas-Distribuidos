@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Cliente Leilao</title>
+
+    <!-- load stylesheet file-->
+    <link rel="stylesheet" href="style.css"/>
+    
+    <!-- load script file with defer-->
+    <script src="script.js" defer></script>
+</head>
+<body>
+    <h1>Cliente Leilão</h1>
+    <section id="criar_leilao">
+        <h2>Criar Novo Leilão</h2>
+        <form id="leilaoForm">
+            <div>
+                <label for="nome">Nome:</label>
+                <input type="text" id="nome" name="nome" required>
+            </div>
+            <div>
+                <label for="descricao">Descrição:</label>
+                <textarea id="descricao" name="descricao" required></textarea>
+            </div>
+            
+            <div class="meio-a-meio">
+                <div class="meio1">
+                    <label for="dataInicio">Data de Início:</label>
+                    <input type="datetime-local" id="dataInicio" name="dataInicio" required>
+                </div>
+                <div class="meio2">
+                    <label for="dataFim">Data de Fim:</label>
+                    <input type="datetime-local" id="dataFim" name="dataFim" required>
+                </div>
+            </div>
+            
+            <div>
+                <label for="lanceInicial">Lance Inicial (R$):</label>
+                <input type="number" id="lanceInicial" name="lanceInicial" min="0" step="0.01" required>
+            </div>
+            
+            <button type="submit" onclick="criarLeilao()">Criar Leilão</button>
+        </form>
+    </section>
+    
+    <section id="efetuar_lance">
+        <h2>Efetuar Lance</h2>
+        <form id="lanceForm">
+            <div>
+                <label for="leilaoId">ID do Leilão:</label>
+                <input type="number" id="leilaoId" name="leilaoId" required>
+            </div>
+            <div>
+                <label for="valorLance">Valor do Lance (R$):</label>
+                <input type="number" id="valorLance" name="valorLance" min="0" step="0.01" required>
+            </div>
+
+            <button type="submit" onclick="efetuarLance()">Efetuar Lance</button>
+        </form>
+    </section>
+
+    <section id="consultar_leiloes">
+        <h2>Consultar Leilões</h2>
+        <div class="consulta-leiloes">
+            <div id="resultadoConsultaLeiloes" class="resultado">
+                <!-- Results will be displayed here -->
+            </div>
+            <button id="consultarLeiloes" onclick="consultarLeiloes()">Consultar Leilões</button>
+        </div>
+    </section>
+
+    <section id="interesse_leilao">
+        <h2>Registrar/Cancelar Interesse em Leilão</h2>
+        <form id="interesseForm">
+            <div>
+                <label for="interesseLeilaoId">ID do Leilão:</label>
+                <input type="number" id="interesseLeilaoId" name="interesseLeilaoId" required>
+            </div>
+
+            <div class="meio-a-meio">
+                <div class="meio1">
+                    <button id="registrarInteresse" onclick="registrarInteresse()">Registrar Interesse</button>
+                </div>
+                <div class="meio2">
+                    <button id="cancelarInteresse" onclick="cancelarInteresse()">Cancelar Interesse</button>
+                </div>
+            </div>
+        </form>
+    </section>
+
+    <section id="notificacoes">
+        <h2>Notificações de Lances</h2>
+        <div class="notificacoes-leiloes"></div>
+            <div class="resultado" id="resultadoNotificacoes">
+                <!-- Notifications will be displayed here -->
+            </div>
+        </div>
+    </section>
+</body>
+</html>
