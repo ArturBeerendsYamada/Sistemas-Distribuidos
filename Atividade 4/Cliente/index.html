@@ -41,8 +41,8 @@
                 <input type="number" id="lanceInicial" name="lanceInicial" min="0" step="0.01" required>
             </div>
             
-            <button type="submit" onclick="criarLeilao()">Criar Leilão</button>
         </form>
+        <button type="submit" onclick="criarLeilao()">Criar Leilão</button>
     </section>
     
     <section id="efetuar_lance">
@@ -57,8 +57,8 @@
                 <input type="number" id="valorLance" name="valorLance" min="0" step="0.01" required>
             </div>
 
-            <button type="submit" onclick="efetuarLance()">Efetuar Lance</button>
         </form>
+        <button type="submit" onclick="efetuarLance()">Efetuar Lance</button>
     </section>
 
     <section id="consultar_leiloes">
@@ -67,8 +67,8 @@
             <div id="resultadoConsultaLeiloes" class="resultado">
                 <!-- Results will be displayed here -->
             </div>
-            <button id="consultarLeiloes" onclick="consultarLeiloes()">Consultar Leilões</button>
         </div>
+        <button id="consultarLeiloes" onclick="consultarLeiloes()">Consultar Leilões</button>
     </section>
 
     <section id="interesse_leilao">
@@ -79,15 +79,15 @@
                 <input type="number" id="interesseLeilaoId" name="interesseLeilaoId" required>
             </div>
 
-            <div class="meio-a-meio">
-                <div class="meio1">
-                    <button id="registrarInteresse" onclick="registrarInteresse()">Registrar Interesse</button>
-                </div>
-                <div class="meio2">
-                    <button id="cancelarInteresse" onclick="cancelarInteresse()">Cancelar Interesse</button>
-                </div>
-            </div>
         </form>
+        <div class="meio-a-meio">
+            <div class="meio1">
+                <button id="registrarInteresse" onclick="registrarInteresse()">Registrar Interesse</button>
+            </div>
+            <div class="meio2">
+                <button id="cancelarInteresse" onclick="cancelarInteresse()">Cancelar Interesse</button>
+            </div>
+        </div>
     </section>
 
     <section id="notificacoes">
@@ -97,6 +97,22 @@
                 <!-- Notifications will be displayed here -->
             </div>
         </div>
+    </section>
+
+    <section id="pagar">
+        <h2>Realizar Pagamento</h2>
+        <form id="pagarForm">
+            <div>
+                <label for="linkPagamento">Link de Pagamento:</label>
+                <input type="text" id="linkPagamento" name="linkPagamento" required>
+            </div>
+            <div>
+                <label for="valorPagamento">Valor do Pagamento (R$):</label>
+                <input type="number" id="valorPagamento" name="valorPagamento" min="0" step="0.01" required>
+            </div>
+
+        </form>
+        <button type="submit" onclick="efetuarPagamento()">Efetuar Pagamento</button>
     </section>
 </body>
 </html>

@@ -176,7 +176,6 @@ def process_lance_validado(ch, method, properties, body):
         if json_data['lei_id'] in interests:
             print(str(clients_interests) + " --- " + str(client_id) + " --- " + str(announcers_per_client))
             if client_id in announcers_per_client:
-                print("AAAAAAAAAAAAAAAAAAAAAA")
                 announcers_per_client[client_id].announce(msg=format_sse(data=body, event='lance_validado'))
     print(f"Lance validado anunciado via SSE: {body}")
 

@@ -1,4 +1,7 @@
-const eventSource = new EventSource('http://127.0.0.1:5000/listen?cli_id=1');
+const BASE_URL = 'http://127.0.0.1:5000'; // ajuste se seu backend roda em outra porta
+const CLI_ID = Math.floor(Date.now() / 1000)*1000 + Math.floor(Math.random() * 1000); // id do cliente
+console.log('Client ID:', CLI_ID);
+const eventSource = new EventSource(`http://127.0.0.1:5000/listen?cli_id=${CLI_ID}`);
 
 eventSource.onmessage = function(event) {
     try {
@@ -12,26 +15,79 @@ eventSource.onmessage = function(event) {
 eventSource.addEventListener('lance_validado', function(event) {
     const data = JSON.parse(event.data);
     console.log('Lance Validado:', data);
+    const container = document.getElementById('resultadoNotificacoes');
+    const el = document.createElement('div');
+    el.className = 'lance_validado_notif';
+    el.innerHTML = `
+        Lance validado<br/>
+        <strong>Leilao:</strong> ${data.lei_id}
+        <br/>
+        Cliente: ${data.cli_id}
+        <br/>
+        Lance: R$ ${Number(data.lance).toFixed(2)}
+    `;
+    container.appendChild(el);
 });
 
 eventSource.addEventListener('lance_invalidado', function(event) {
     const data = JSON.parse(event.data);
     console.log('Lance Invalidado:', data);
+    const container = document.getElementById('resultadoNotificacoes');
+    const el = document.createElement('div');
+    el.className = 'lance_invalidado_notif';
+    el.innerHTML = `
+        Lance invalido<br/>
+        <strong>Leilao:</strong> ${data.lei_id}<br/>
+        Cliente: ${data.cli_id}<br/>
+        Lance: R$ ${Number(data.lance).toFixed(2)}
+    `;
+    container.appendChild(el);
 });
 
 eventSource.addEventListener('leilao_vencedor', function(event) {
     const data = JSON.parse(event.data);
     console.log('Leilao Vencedor:', data);
+    const container = document.getElementById('resultadoNotificacoes');
+    const el = document.createElement('div');
+    el.className = 'leilao_vencedor_notif';
+    el.innerHTML = `
+        Leilao finalizado<br/>
+        <strong>ID:</strong> ${data.lei_id} - <strong>${data.nome}</strong><br/>
+        <em>${data.desc}</em><br/>
+        Cliente: ${data.cli_id}<br/>
+        valor: R$ ${Number(data.lance).toFixed(2)}
+    `;
+    container.appendChild(el);
 });
 
 eventSource.addEventListener('link_pagamento', function(event) {
     const data = JSON.parse(event.data);
     console.log('Link de Pagamento:', data);
+    const container = document.getElementById('resultadoNotificacoes');
+    const el = document.createElement('div');
+    el.className = 'link_pagamento_notif';
+    el.innerHTML = `
+        Link para pagamento<br/>
+        <strong>Leilao:</strong> ${data.lei_id}<br/>
+        Cliente: ${data.cli_id}<br/>
+        Link: ${data.link_pagamento}
+    `;
+    container.appendChild(el);
 });
 
 eventSource.addEventListener('status_pagamento', function(event) {
     const data = JSON.parse(event.data);
     console.log('Status de Pagamento:', data);
+    const container = document.getElementById('resultadoNotificacoes');
+    const el = document.createElement('div');
+    el.className = 'status_pagamento_notif';
+    el.innerHTML = `
+        Status de pagamento<br/>
+        <strong>Leilao:</strong> ${data.lei_id}<br/>
+        Cliente: ${data.cli_id}<br/>
+        Status: ${data.status}
+    `;
+    container.appendChild(el);
 });
 
 eventSource.onerror = function(error) {
@@ -42,11 +98,6 @@ eventSource.onerror = function(error) {
 eventSource.onopen = function() {
     console.log('Connection established');
 };
-
-
-const BASE_URL = 'http://127.0.0.1:5000'; // ajuste se seu backend roda em outra porta
-const CLI_ID = Math.floor(Date.now() / 1000)*1000 + Math.floor(Math.random() * 1000); // id do cliente
-console.log('Client ID:', CLI_ID);
 
 function unixSecondsFromDatetimeLocal(value) {
     // value é no formato "YYYY-MM-DDTHH:MM" ou com segundos
@@ -113,25 +164,23 @@ async function efetuarLance() {
             return;
         }
 
-        const payload = { lei_id: lei_id, valor: valor, cli_id: CLI_ID };
+        const payload = { lei_id: lei_id, lance: valor, cli_id: CLI_ID };
 
-        console.log('Efetuando lance:', payload);
+        const res = await fetch(`${BASE_URL}/lance`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
 
-        // const res = await fetch(`${BASE_URL}/efetuar_lance`, {
-        //     method: 'POST',
-        //     headers: { 'Content-Type': 'application/json' },
-        //     body: JSON.stringify(payload)
-        // });
+        if (!res.ok) {
+            const err = await res.json().catch(()=>({error: 'Erro desconhecido'}));
+            alert('Erro ao efetuar lance: ' + (err.error || res.statusText));
+            return;
+        }
 
-        // if (!res.ok) {
-        //     const err = await res.json().catch(()=>({error: 'Erro desconhecido'}));
-        //     alert('Erro ao efetuar lance: ' + (err.error || res.statusText));
-        //     return;
-        // }
-
-        // const data = await res.json();
-        // alert('Lance enviado. Resposta: ' + (data.message || JSON.stringify(data)));
-        // document.getElementById('lanceForm').reset();
+        const data = await res.json();
+        alert('Lance enviado. Resposta: ' + (data.message || JSON.stringify(data)));
+        document.getElementById('lanceForm').reset();
     } catch (e) {
         console.error(e);
         alert('Erro ao efetuar lance.');
@@ -154,12 +203,19 @@ async function consultarLeiloes() {
         }
         lista.forEach(l => {
             const el = document.createElement('div');
-            el.className = 'leilao-item';
+            if (l.status === 'finalizado') 
+                el.className = 'leilao-item-fin';
+            else if (l.status === 'em andamento') 
+                el.className = 'leilao-item-ativo';
+            else if (l.status === 'agendado') 
+                el.className = 'leilao-item-agend';
+            else 
+                el.className = 'leilao-item';
             el.innerHTML = `
-                <strong>ID:</strong> ${l.lei_id} — <strong>${l.nome}</strong><br/>
+                <strong>ID:</strong> ${l.lei_id} - <strong>${l.nome}</strong><br/>
                 <em>${l.desc}</em><br/>
-                Lance inicial: R$ ${Number(l.lance_inic).toFixed(2)} — Status: ${l.status}<br/>
-                Início: ${new Date(l.data_inic * 1000).toLocaleString()} — Fim: ${new Date(l.data_fim * 1000).toLocaleString()}
+                Lance inicial: R$ ${Number(l.lance_inic).toFixed(2)} - Status: ${l.status}<br/>
+                Início: ${new Date(l.data_inic * 1000).toLocaleString()} - Fim: ${new Date(l.data_fim * 1000).toLocaleString()}
             `;
             container.appendChild(el);
         });
@@ -210,5 +266,38 @@ async function cancelarInteresse() {
     } catch (e) {
         console.error(e);
         alert('Erro ao cancelar interesse.');
+    }
+}
+
+async function efetuarPagamento() {
+        try {
+        const link = document.getElementById('linkPagamento').value;
+        const valor = parseFloat(document.getElementById('valorPagamento').value);
+
+        if (!link || isNaN(valor)) {
+            alert('Preencha link de pagamento e valor corretamente.');
+            return;
+        }
+
+        const payload = { valor: valor, moeda: 'BRL' };
+
+        const res = await fetch(link, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) {
+            const err = await res.json().catch(()=>({error: 'Erro desconhecido'}));
+            alert('Erro ao efetuar pagamento: ' + (err.error || res.statusText));
+            return;
+        }
+
+        const data = await res.json();
+        alert('Pagamento enviado. Resposta: ' + (data.message || JSON.stringify(data)));
+        document.getElementById('pagarForm').reset();
+    } catch (e) {
+        console.error(e);
+        alert('Erro ao efetuar pagamento.');
     }
 }

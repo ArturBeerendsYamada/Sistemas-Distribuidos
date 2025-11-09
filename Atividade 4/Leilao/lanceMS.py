@@ -104,8 +104,8 @@ def process_leilao_finalizado(ch, method, properties, body):
         body=message
     )
 
-    rabbitmq_objects[json_data['lei_id']]['channel'].close()
-    rabbitmq_objects[json_data['lei_id']]['connection'].close()
+    # rabbitmq_objects[json_data['lei_id']]['channel'].close()
+    # rabbitmq_objects[json_data['lei_id']]['connection'].close()
 
     print(f"Leilão finalizado: {message}")
 

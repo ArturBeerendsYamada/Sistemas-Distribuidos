@@ -2,7 +2,9 @@ import requests
 
 # app.py
 from flask import Flask, request, jsonify
+from flask_cors import CORS
 app = Flask(__name__)
+CORS(app)
 
 def runFlaskApp():
     app.run(port=5004, debug=True, use_reloader=False)

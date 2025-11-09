@@ -37,6 +37,7 @@ button {
     border-radius: 6px;
     cursor: pointer;
     font-weight: bold;
+    margin-bottom: 15px;
 }
 
 button:hover {
@@ -57,6 +58,39 @@ form > * {
 }
 .meio1, .meio2 {
     width: 48%;
+}
+
+.leilao-item, .leilao-item-fin, .leilao-item-ativo, .leilao-item-agend,
+.lance_validado_notif, .lance_invalidado_notif, .leilao_vencedor_notif,
+.link_pagamento_notif, .status_pagamento_notif {
+    margin-bottom: 10px;
+    padding: 10px;
+    border-radius: 6px;
+}
+
+.leilao-item-fin {
+    background-color: lightgray;
+}
+.leilao-item-ativo {
+    background-color: lightgreen;
+}
+.leilao-item-agend {
+    background-color: lightblue;
+}
+.lance_validado_notif {
+    background-color: lightgreen;
+}
+.lance_invalidado_notif {
+    background-color: lightcoral;
+}
+.leilao_vencedor_notif {
+    background-color: lightblue;
+}
+.link_pagamento_notif {
+    background-color: lightgoldenrodyellow;
+}
+.status_pagamento_notif {
+    background-color: lightgoldenrodyellow;
 }
 
 #registrarInteresse {

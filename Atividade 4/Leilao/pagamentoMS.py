@@ -54,6 +54,7 @@ def process_leilao_vencedor(ch, method, properties, body):
         "valor": json_data['lance'],
         "moeda": "BRL"
     }
+    print(f"Solicitando novo link de pagamento: {body}")
     response = requests.post(SISTEMA_PAGAMENTO_URL, json=body)
 
     if response.status_code == 200:
@@ -67,6 +68,7 @@ def process_leilao_vencedor(ch, method, properties, body):
             routing_key=ROUTING_KEY_LINK_PAGAMENTO,
             body=body
         )
+        print(f"link de pagamento recebido: {body}")
     
     else:
         print(f"Erro ao solicitar pagamento: {response.status_code} - {response.text}")
@@ -77,10 +79,11 @@ def main():
     channel = connection.channel()
     channel.exchange_declare(exchange=EXCHANGE_NAME, exchange_type=EXCHANGE_TYPE)
 
-    # declara queues e associa as routing keys e callbacks
-    channel.queue_declare(queue=ROUTING_KEY_LEILAO_VENCEDOR)
-    channel.queue_bind(exchange=EXCHANGE_NAME, queue=ROUTING_KEY_LEILAO_VENCEDOR, routing_key=ROUTING_KEY_LEILAO_VENCEDOR)
-    channel.basic_consume(queue=ROUTING_KEY_LEILAO_VENCEDOR, on_message_callback=process_leilao_vencedor, auto_ack=True)
+    # precisa ter a propria fila para permitir esse processo e o APIgateway ambos consumirem
+    queue_name = f'leilao_vencedor_pagamento_ms'
+    channel.queue_declare(queue=queue_name)
+    channel.queue_bind(exchange=EXCHANGE_NAME, queue=queue_name, routing_key=ROUTING_KEY_LEILAO_VENCEDOR)
+    channel.basic_consume(queue=queue_name, on_message_callback=process_leilao_vencedor, auto_ack=True)
 
     threading.Thread(target=runFlaskApp, daemon=True).start()
 
